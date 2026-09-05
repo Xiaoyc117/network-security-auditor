@@ -1,0 +1,11 @@
+# 网络安全审计工具依赖声明
+
+# 本工具完全使用 Python 标准库实现,无外部 pip 依赖。
+# 推荐使用 Python 3.8+ 运行。
+#
+# 可选依赖(非必需,用于增强证书解析):
+#   cryptography  - 用于解析 DER 证书的 SAN 等高级字段
+# 安装:  pip install cryptography
+#
+# 运行测试(可选):
+#   pytest
