@@ -102,22 +102,25 @@ def _parse_der_cert(cert_der: bytes) -> dict:
     为避免引入 cryptography 依赖,优先尝试用标准库的 ssl 模块间接解析;
     若失败则返回空结构,后续报告仍可展示 getpeercert 拿到的信息。
     """
-    # 优先利用 openssl 命令? 不行(跨平台问题)。改为尝试 cryptography 可选导入。
+    # 尝试用 cryptography 解析(可选依赖);任何失败都退回空结构
     try:
         from cryptography import x509  # type: ignore
         from cryptography.hazmat.backends import default_backend
         cert = x509.load_der_x509_certificate(cert_der, default_backend())
         subject = cert.subject
         issuer = cert.issuer
+        # rfc4514_string 是稳定公开 API;若不可用则回退到字符串
+        subj_str = subject.rfc4514_string() if hasattr(subject, "rfc4514_string") else str(subject)
+        iss_str = issuer.rfc4514_string() if hasattr(issuer, "rfc4514_string") else str(issuer)
         return {
-            "subject": [(attr.oid._name, attr.value) for attr in subject] if hasattr(subject, "__iter__") else str(subject),
-            "issuer": [(attr.oid._name, attr.value) for attr in issuer] if hasattr(issuer, "__iter__") else str(issuer),
+            "subject": subj_str,
+            "issuer": iss_str,
             "not_before": cert.not_valid_before.strftime("%Y-%m-%d %H:%M:%S UTC"),
             "not_after": cert.not_valid_after.strftime("%Y-%m-%d %H:%M:%S UTC"),
             "san": _extract_san(cert),
         }
-    except ImportError:
-        # cryptography 不可用时退回基础解析
+    except Exception:
+        # cryptography 不可用或解析失败时退回空结构
         return {}
 
 
