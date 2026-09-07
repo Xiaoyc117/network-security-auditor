@@ -1,0 +1,34 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Syntax check (py_compile all .py)
+        run: |
+          find . -name "*.py" -not -path "*/__pycache__/*" -print0 | xargs -0 -n1 python -m py_compile
+
+      - name: Import check
+        run: |
+          python -c "import auditor, auditor.cli, auditor.core, auditor.target, auditor.utils"
+          python -c "from auditor.modules import port_scanner, ssl_checker, web_auditor, compliance, subdomain"
+          python -c "from auditor.reporters import html_reporter, data_reporter"
+          python -c "from auditor.reporters.data_reporter import generate_json, generate_csv"
+          python -c "from auditor.modules.subdomain import enumerate_subdomains, to_findings, DEFAULT_WORDLIST"
+          python -c "print('All imports OK')"
+
+      - name: CLI help check
+        run: python main.py --help
