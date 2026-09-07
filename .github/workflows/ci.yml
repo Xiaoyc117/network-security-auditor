@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.8", "3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Compile check (py_compile)
+        run: |
+          python -m compileall -q auditor main.py 2>&1 || true
+          python -m py_compile main.py auditor/cli.py auditor/core.py auditor/utils.py auditor/target.py auditor/modules/port_scanner.py auditor/modules/ssl_checker.py auditor/modules/web_auditor.py auditor/modules/compliance.py auditor/modules/subdomain.py auditor/reporters/html_reporter.py auditor/reporters/data_reporter.py
+
+      - name: Run unit tests
+        run: python -m unittest discover tests -v
+
+      - name: Smoke test (127.0.0.1, no network)
+        run: python main.py --target 127.0.0.1 --ports 80,443 --modules port --format json --output smoke_report.json && python -c "import json; d=json.load(open('smoke_report.json')); print('hosts:', d['summary']['total_hosts'])"
