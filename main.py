@@ -45,6 +45,7 @@ def main(argv=None) -> int:
             output_path=opts["output"],
             target_info=", ".join(opts["targets"]),
             verbose=opts["verbose"],
+            fmt=opts["fmt"],
         )
     except KeyboardInterrupt:
         print("\n[!] 用户中断,已退出。")
