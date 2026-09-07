@@ -8,6 +8,8 @@
 - **SSL/TLS 证书检查**: 证书有效期/自签名/SAN 匹配 + 协议版本探测(标记 SSLv3/TLS1.0/1.1 等弱协议)+ 弱加密套件检测
 - **Web 安全检测**: 安全响应头检查(HSTS/CSP/X-Frame-Options 等)+ 敏感路径探测(`.git`/`.env`/备份文件)+ 目录列出检测 + Server 版本泄露
 - **合规与配置检查**: 基于 OWASP/CIS 基线规则集评估,输出合规得分(0-100)和修复建议
+- **子域名枚举**: 内置 50 词高频字典,通过 DNS 暴力枚举发现目标的子域名,自动标记可能暴露管理/CI 接口的高危子域名
+- **多格式报告**: HTML(默认,可视化)/ JSON(结构化,便于二次处理)/ CSV(表格,便于筛选排序)
 - **目标支持**: 单 IP / 域名 / CIDR 网段(`192.168.1.0/24`)/ IP 范围(`10.0.0.1-50`)
 - **可视化报告**: 单文件 HTML,内嵌 CSS,离线可查看,含风险等级徽章和合规评分仪表盘
 - **非破坏性**: 仅 TCP connect(无需 root),被动 Web 探测,合法合规使用
@@ -35,6 +37,15 @@ python main.py --target 10.0.0.1 --modules port,ssl
 
 # 自定义端口范围 + 高并发
 python main.py --target 10.0.0.1 --ports 1-1000 --threads 50 --timeout 2
+
+# 子域名枚举(仅对域名生效,IP 自动跳过)
+python main.py --target example.com --modules subdomain --output report.html
+
+# 导出 JSON 报告(便于程序处理)
+python main.py --target 192.168.1.1 --format json --output report.json
+
+# 导出 CSV 报告(便于 Excel 筛选)
+python main.py --target 192.168.1.1 --format csv --output report.csv
 ```
 
 ## 命令行参数
@@ -44,8 +55,9 @@ python main.py --target 10.0.0.1 --ports 1-1000 --threads 50 --timeout 2
 | `--target HOST` | 单个目标(IP/域名),可多次指定 | - |
 | `--cidr CIDR` | CIDR 网段,可多次指定 | - |
 | `--ports PORTS` | 自定义端口,逗号分隔,支持范围 `80,443,1000-2000` | Top 100 常见端口 |
-| `--modules MODS` | 选择模块:`port,ssl,web,compliance` | 全部 |
-| `--output PATH` | HTML 报告输出路径 | `audit_report.html` |
+| `--modules MODS` | 选择模块:`port,ssl,web,compliance,subdomain` | 全部 |
+| `--output PATH` | 报告输出路径 | `audit_report.html` |
+| `--format FMT` | 报告格式:`html`/`json`/`csv` | `html` |
 | `--threads N` | 并发线程数 | 10 |
 | `--timeout SEC` | 单次连接超时秒数 | 3.0 |
 | `--verbose` | 打印详细进度 | 否 |
@@ -64,9 +76,11 @@ network-security-auditor/
 │   │   ├── port_scanner.py    # 端口与服务扫描
 │   │   ├── ssl_checker.py     # SSL/TLS 检查
 │   │   ├── web_auditor.py     # Web 安全检测
-│   │   └── compliance.py      # 合规检查
+│   │   ├── compliance.py      # 合规检查
+│   │   └── subdomain.py       # 子域名枚举
 │   └── reporters/
-│       └── html_reporter.py   # HTML 报告生成
+│       ├── html_reporter.py   # HTML 报告生成
+│       └── data_reporter.py    # JSON/CSV 报告生成
 └── tests/                     # 单元测试
 ```
 
@@ -101,6 +115,13 @@ python -m pytest tests/ -v
 - `OWASP-HEADER-001/002` 应配置 HSTS 和 CSP
 - `OWASP-EXPOSE-001/002` 不应暴露源代码/凭据文件;管理后台不应公网可访问
 - `OWASP-VERSION-001` 不应泄露服务/应用版本号
+
+## 持续集成
+
+项目配置了 GitHub Actions CI,在 push/PR 时自动运行:
+
+- **CI**([ci.yml](.github/workflows/ci.yml)):跨平台(Ubuntu/Windows)x 多版本 Python(3.8/3.11/3.13)矩阵,运行编译检查 + 单元测试 + 冒烟测试
+- **Lint**([lint.yml](.github/workflows/lint.yml)):全量语法检查 + 导入检查 + CLI 帮助检查
 
 ## 法律与使用声明
 
