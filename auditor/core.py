@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import List, Optional
 
 from .modules import compliance as compliance_mod
-from .modules import port_scanner, ssl_checker, web_auditor
-from .reporters.html_reporter import generate_report
+from .modules import port_scanner, ssl_checker, subdomain, web_auditor
+from .reporters.data_reporter import generate_csv, generate_json
+from .reporters.html_reporter import generate_report as generate_html
 from .target import parse_targets
 from .utils import HostResult, INFO, Finding, resolve_host, run_concurrent
 
@@ -86,6 +87,21 @@ def audit_host(
                         detail=str(e))
             )
 
+    # 子域名枚举(仅对域名,IP 跳过)
+    if "subdomain" in modules and _looks_like_https(host):
+        try:
+            found = subdomain.enumerate_subdomains(
+                host, threads=min(threads, 20), timeout=timeout
+            )
+            for f in subdomain.to_findings(host, found):
+                hr.findings.append(f)
+        except Exception as e:
+            hr.findings.append(
+                Finding(module="subdomain", severity=INFO,
+                        title=f"{host}: 子域名枚举失败",
+                        detail=str(e))
+            )
+
     return hr
 
 
@@ -98,8 +114,9 @@ def run_audit(
     output_path: str = "audit_report.html",
     target_info: str = "",
     verbose: bool = False,
+    fmt: str = "html",
 ) -> str:
-    """运行完整审计流程,返回 HTML 报告路径。"""
+    """运行完整审计流程,返回报告路径。"""
     if modules is None:
         modules = ["port", "ssl", "web", "compliance"]
 
@@ -130,7 +147,13 @@ def run_audit(
         )
         print(f"[*] 审计完成: {len(host_results)} 台主机, {total_findings} 条发现, {high_count} 条高危")
 
-    return generate_report(host_results, output_path, target_info=target_info or ", ".join(targets))
+    tinfo = target_info or ", ".join(targets)
+    if fmt == "json":
+        return generate_json(host_results, output_path, target_info=tinfo)
+    elif fmt == "csv":
+        return generate_csv(host_results, output_path)
+    else:
+        return generate_html(host_results, output_path, target_info=tinfo)
 
 
 def _looks_like_https(host: str) -> bool:
